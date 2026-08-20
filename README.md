@@ -1,2 +1,1 @@
-# SlingShockFPS
-SlingShockFPS
+# Read me gng 😭😭😭😭
