@@ -28,14 +28,30 @@
 
     #sniper-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; display: none; z-index: 4; }
     #sniper-overlay::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80vh; height: 80vh; border-radius: 50%; box-shadow: 0 0 0 9999px black; border: 2px solid #222; }
-    #sniper-overlay::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 1px; background: rgba(51, 136, 255, 0.6); }
+    /* Full reticle: horizontal + vertical crosshair lines with a center gap, plus a center dot */
+    #scope-reticle { position: absolute; top: 50%; left: 50%; width: 80vh; height: 80vh; transform: translate(-50%, -50%); }
+    #scope-reticle .h-line, #scope-reticle .v-line { position: absolute; background: rgba(51, 136, 255, 0.65); }
+    #scope-reticle .h-line { top: 50%; left: 0; width: 100%; height: 1px; transform: translateY(-50%); }
+    #scope-reticle .v-line { left: 50%; top: 0; height: 100%; width: 1px; transform: translateX(-50%); }
+    #scope-reticle .gap { position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); background: black; border-radius: 50%; }
+    #scope-reticle .dot { position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; border-radius: 50%; background: rgba(51, 136, 255, 0.9); transform: translate(-50%, -50%); }
 
-    /* Floating Overhead Health Bar */
+    /* Pullout-delay ring around crosshair */
+    #pullout-ring { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; z-index: 5; opacity: 0; }
+    #pullout-ring circle { fill: none; stroke: rgba(255, 255, 255, 0.85); stroke-width: 2; }
+    #pullout-ring circle.bg { stroke: rgba(255, 255, 255, 0.15); }
+
+    /* Floating Overhead Shield + Health Bars */
     #target-hp-container {
-      position: absolute; width: 60px; height: 6px; background: rgba(15, 15, 20, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 2px; transform: translate(-50%, -100%);
+      position: absolute; width: 60px; height: 12px; 
       pointer-events: none; opacity: 0; transition: opacity 0.3s ease-out; z-index: 3;
+      transform: translate(-50%, -100%); display: flex; flex-direction: column; gap: 2px;
     }
+    #target-shield-container, #target-hp-bg {
+      width: 100%; height: 5px; background: rgba(15, 15, 20, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 2px; overflow: hidden;
+    }
+    #target-shield-fill { width: 100%; height: 100%; background: #8e9eab; transition: width 0.15s ease-out; }
     #target-hp-fill { width: 100%; height: 100%; background: #ff4655; transition: width 0.15s ease-out; }
 
     /* Transparent Modern Weapon HUD (Bottom Left) */
@@ -53,14 +69,29 @@
     .weapon-icon-box svg { width: 100%; height: 100%; fill: #3388ff; transition: fill 0.2s, transform 0.2s; }
     .hud-info { display: flex; flex-direction: column; align-items: flex-start; text-shadow: 0 2px 10px rgba(0,0,0,0.9); }
     
+    #weapon-recoil-display { font-size: 11px; letter-spacing: 1.5px; color: #cc88ff; text-transform: uppercase; margin-bottom: 1px; }
     #weapon-firerate-display { font-size: 11px; letter-spacing: 1.5px; color: #ffcc00; text-transform: uppercase; margin-bottom: 1px; }
     #weapon-dmg-display { font-size: 11px; letter-spacing: 1.5px; color: #ff4655; text-transform: uppercase; margin-bottom: 1px; }
+    #weapon-headshot-display { font-size: 9px; letter-spacing: 1.2px; color: rgba(255, 70, 85, 0.6); text-transform: uppercase; margin-bottom: 1px; }
     #weapon-speed-display { font-size: 11px; letter-spacing: 1.5px; color: #4af; text-transform: uppercase; margin-bottom: 2px; }
     #weapon-name-display { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
     .ammo-box { display: flex; align-items: baseline; gap: 6px; line-height: 1; margin-top: 2px; }
     #ammo-current { font-size: 42px; color: #fff; }
     .ammo-divider { font-size: 22px; color: rgba(255, 255, 255, 0.3); }
     #ammo-max { font-size: 22px; color: rgba(255, 255, 255, 0.6); }
+
+    /* Magazine icon next to ammo counter */
+    .mag-icon-box { position: relative; width: 26px; height: 34px; margin-left: 4px; opacity: 0.9; }
+    .mag-icon-box svg.mag-body { width: 100%; height: 100%; }
+    .mag-icon-box .mag-reserve-count {
+      position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
+      font-size: 12px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    }
+    .mag-icon-box .mag-reload-badge {
+      position: absolute; top: -5px; right: -5px; width: 13px; height: 13px;
+      background: rgba(15, 15, 20, 0.85); border-radius: 50%; padding: 1px;
+    }
+    .mag-icon-box.hidden { display: none; }
 
     /* Player Health & Shield HUD + Stamina Bar (Bottom Middle) */
     #player-status-container {
@@ -105,24 +136,63 @@
     .btn-primary:hover { background: #389ee6; }
     .btn-secondary { background: #2a2a36; border: 1px solid #444; color: #aaa; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 13px; transition: 0.2s; }
     .btn-secondary:hover { background: #383848; color: #fff; border-color: #666; }
+
+    /* Minimap (top left) */
+    #minimap-container {
+      position: absolute; top: 20px; left: 20px; width: 150px; height: 150px;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; overflow: hidden;
+      background: rgba(10, 10, 14, 0.6); z-index: 2; pointer-events: none;
+    }
+    #minimap { width: 100%; height: 100%; display: block; }
+
+    /* Debug / model calibration overlay (toggle with "9") */
+    #debug-overlay {
+      position: absolute; top: 20px; right: 20px; width: 260px; 
+      background: rgba(10, 10, 14, 0.85); border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+      padding: 10px 12px; color: #fff; font-family: monospace; font-size: 11px; line-height: 1.6;
+      z-index: 10; display: none; pointer-events: none; white-space: pre;
+    }
+    #debug-overlay .dbg-title { color: #cc88ff; font-weight: bold; margin-bottom: 4px; }
   </style>
 </head>
 <body>
+  <!-- Minimap -->
+  <div id="minimap-container"><canvas id="minimap" width="150" height="150"></canvas></div>
+
+  <!-- Debug / model calibration overlay -->
+  <div id="debug-overlay"></div>
+
   <!-- Crosshair & Hitmarkers -->
   <div id="crosshair-container">
     <div id="crosshair"></div>
     <div id="hitmarker"></div>
+    <svg id="pullout-ring" viewBox="0 0 32 32">
+      <circle class="bg" cx="16" cy="16" r="13"></circle>
+      <circle id="pullout-ring-fg" cx="16" cy="16" r="13" stroke-dasharray="81.68" stroke-dashoffset="0"></circle>
+    </svg>
   </div>
 
-  <div id="sniper-overlay"></div>
+  <div id="sniper-overlay">
+    <div id="scope-reticle">
+      <div class="h-line"></div>
+      <div class="v-line"></div>
+      <div class="gap"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
   
-  <!-- Target HP -->
-  <div id="target-hp-container"><div id="target-hp-fill"></div></div>
+  <!-- Target Shield + HP -->
+  <div id="target-hp-container">
+    <div id="target-shield-container"><div id="target-shield-fill"></div></div>
+    <div id="target-hp-bg"><div id="target-hp-fill"></div></div>
+  </div>
 
   <!-- Transparent Bottom-Left Weapon HUD -->
   <div id="hud-container">
+    <div id="weapon-recoil-display">RECOIL: 0.0</div>
     <div id="weapon-firerate-display">FIRE RATE: 0.0/S (350MS)</div>
     <div id="weapon-dmg-display">DAMAGE: 15.0</div>
+    <div id="weapon-headshot-display">HEADSHOT: 150% DAMAGE</div>
     <div id="weapon-speed-display">MOBILITY: 100%</div>
     <div class="hud-weapon-row" id="hud-weapon-row">
       <span class="arrow-btn">&lt;</span>
@@ -135,6 +205,19 @@
         <span id="ammo-current">--</span>
         <span class="ammo-divider">/</span>
         <span id="ammo-max">--</span>
+        <div class="mag-icon-box" id="mag-icon-box">
+          <svg class="mag-body" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 2 H18 L17 20 H7 Z" fill="#ccc" stroke="#888" stroke-width="1"/>
+            <rect x="7" y="20" width="10" height="6" fill="#999" stroke="#777" stroke-width="1"/>
+          </svg>
+          <svg class="mag-reload-badge" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 12a8 8 0 0 1 13.66-5.66L20 8" stroke="#4af" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M20 4v4h-4" stroke="#4af" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 12a8 8 0 0 1-13.66 5.66L4 16" stroke="#4af" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M4 20v-4h4" stroke="#4af" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="mag-reserve-count" id="mag-reserve-count">0</span>
+        </div>
       </div>
     </div>
   </div>
@@ -393,9 +476,9 @@
       {
         name: "Combat Knife", type: "knife", color: "cccccc", svg: weaponSVGs.knife,
         modelPath: "assets/models/tactical_knife.glb",
-        damage: 15.0, attackSpeed: 350, movementSpeed: 1.0, maxAmmo: "--", ammo: "--",
+        damage: 25.0, attackSpeed: 345, movementSpeed: 1.0, maxAmmo: "--", ammo: "--",
         baseSpread: 0.001, maxSpread: 0.001, spreadIncrement: 0, spreadRecovery: 0.1,
-        recoilKick: 0.01, maxRecoil: 0.01, isMelee: true, isSniper: false, zoomFov: 70,
+        recoilKick: 0.015, maxRecoil: 0.015, isMelee: true, isSniper: false, zoomFov: 70,
         // Sketchfab source model is built ~15 units long along its local X axis.
         // rot.y = 90deg turns that local X into world -Z (forward, away from camera).
         modelTransform: { pos: [0, 0, 0], rot: [0, Math.PI / 2, 0], scale: 0.023 }
@@ -403,18 +486,20 @@
       { 
         name: "Assault Rifle", type: "ar", color: "3388ff", svg: weaponSVGs.ar, 
         modelPath: "assets/models/assault_rifle.glb",
-        damage: 6.7, attackSpeed: 110, movementSpeed: 0.92, maxAmmo: 30, ammo: 30, 
+        damage: 32.0, attackSpeed: 110, movementSpeed: 0.76, maxAmmo: 30, ammo: 30, 
         baseSpread: 0.012, maxSpread: 0.065, spreadIncrement: 0.007, spreadRecovery: 0.12,
-        recoilKick: 0.014, maxRecoil: 0.08, isMelee: false, isSniper: false, zoomFov: 60,
+        recoilKick: 0.022, maxRecoil: 0.11, isMelee: false, isSniper: false, zoomFov: 60,
+        maxMags: 3, reserveMags: 2, // 3 mags total: 1 loaded + 2 spare, 30 rounds each
         // Source model is ~224 units long along local X.
         modelTransform: { pos: [0, 0, 0], rot: [0, Math.PI / 2, 0], scale: 0.0027 }
       },
       { 
         name: "Shotgun", type: "shotgun", color: "ff8833", svg: weaponSVGs.shotgun, 
         modelPath: "assets/models/shotgun.glb",
-        damage: 6.25, attackSpeed: 750, movementSpeed: 0.85, maxAmmo: 8, ammo: 8, 
+        damage: 9.125, attackSpeed: 833, movementSpeed: 0.70, maxAmmo: 8, ammo: 8, 
         baseSpread: 0.06, maxSpread: 0.11, spreadIncrement: 0.02, spreadRecovery: 0.15,
-        recoilKick: 0.05, maxRecoil: 0.15, pellets: 8, isMelee: false, isSniper: false, zoomFov: 65,
+        recoilKick: 0.075, maxRecoil: 0.2, pellets: 8, isMelee: false, isSniper: false, zoomFov: 65,
+        maxMags: 2, reserveMags: 1, // 2 mags total: 1 loaded + 1 spare, 8 shells each
         // Unlike the other 3 models, this one is built along local Y (not X) --
         // every sub-mesh confirms it. rot.x = -90deg brings local Y to world -Z.
         modelTransform: { pos: [0, 0, 0], rot: [-Math.PI / 2, 0, 0], scale: 0.028 }
@@ -422,9 +507,13 @@
       { 
         name: "Sniper Rifle", type: "sniper", color: "ff3355", svg: weaponSVGs.sniper, 
         modelPath: "assets/models/sniper_rifle.glb",
-        damage: 70.0, attackSpeed: 1000, movementSpeed: 0.78, maxAmmo: 5, ammo: 5, 
+        damage: 140.0, attackSpeed: 1667, movementSpeed: 0.50, maxAmmo: 5, ammo: 5, 
         baseSpread: 0.001, maxSpread: 0.03, spreadIncrement: 0.01, spreadRecovery: 0.25,
-        recoilKick: 0.07, maxRecoil: 0.18, pellets: 1, isMelee: false, isSniper: true, zoomFov: 20,
+        recoilKick: 0.11, maxRecoil: 0.24, pellets: 1, isMelee: false, isSniper: true, zoomFov: 20,
+        // NOTE: your notes cut off after "Sniper should" -- defaulted to 2 mags
+        // of 5 (matching existing capacity). Change reserveMags/maxMags below if
+        // you meant something else.
+        maxMags: 2, reserveMags: 1,
         // Source model is ~62 units long along local X.
         modelTransform: { pos: [0, 0, 0], rot: [0, Math.PI / 2, 0], scale: 0.012 }
       }
@@ -438,6 +527,33 @@
     let currentWeaponIdx = 0;
     let lastShotTime = 0;
     let isReloading = false;
+
+    // Short pullout delay -- can't fire for a moment after switching weapons
+    const PULLOUT_DELAY_MS = 320;
+    let weaponReadyTime = 0;
+
+    // Sustained-fire punishment: holding the trigger on high-RPM weapons (>= 8.5/s)
+    // ramps up screen shake + crosshair drift the longer you hold it, asymptotically
+    // approaching (but never exceeding) a max threshold.
+    const HIGH_RPM_THRESHOLD = 8.5;
+    const SUSTAINED_SHAKE_MAX = 0.05;   // radians, camera shake cap
+    const SUSTAINED_SHAKE_TAU = 1.1;    // seconds -- how fast it ramps toward max
+    let sustainedFireTime = 0;
+    let shakeOffsetX = 0, shakeOffsetY = 0;
+
+    // Recoil is now a separate visual offset from the player's actual aim (pitch),
+    // so it can auto-recenter instead of permanently altering where you're looking.
+    let recoilPitchOffset = 0;
+    const RECOIL_RECOVERY_RATE = 0.055; // per-frame lerp toward 0 -- tuned so full-auto
+                                         // high-RPM fire outpaces recovery, but releasing
+                                         // the trigger lets it fully settle in under a second
+
+    // Camera inertia (movement/fall/jump lag) -- separate from mouse-look, which stays instant
+    let cameraRoll = 0;
+    let cameraPitchOffset = 0;
+
+    // Debug/model-calibration overlay, toggled with "9"
+    let debugMode = false;
 
     // Viewmodel & Weapon Group Setup
     const gunGroup = new THREE.Group();
@@ -505,8 +621,9 @@
 
       // Update HUD Stat Readouts
       const shotsPerSec = (1000 / w.attackSpeed).toFixed(1);
+      document.getElementById('weapon-recoil-display').textContent = `RECOIL: ${(w.recoilKick * 100).toFixed(1)}`;
       document.getElementById('weapon-firerate-display').textContent = `FIRE RATE: ${shotsPerSec}/S (${w.attackSpeed}MS)`;
-      const totalDmgDisplay = w.type === 'shotgun' ? `${(w.damage * w.pellets).toFixed(0)} (${w.pellets}x${w.damage})` : w.damage.toFixed(1);
+      const totalDmgDisplay = w.type === 'shotgun' ? `${(w.damage * w.pellets).toFixed(0)} (${w.pellets}x${w.damage.toFixed(1)})` : w.damage.toFixed(1);
       document.getElementById('weapon-dmg-display').textContent = `DAMAGE: ${totalDmgDisplay}`;
       document.getElementById('weapon-speed-display').textContent = `MOBILITY: ${Math.round(w.movementSpeed * 100)}%`;
       document.getElementById('weapon-name-display').textContent = w.name;
@@ -514,6 +631,24 @@
       document.getElementById('weapon-icon').innerHTML = w.svg;
       const svgPath = document.querySelector('#weapon-icon svg path');
       if (svgPath) svgPath.style.fill = '#' + w.color;
+
+      // Magazine icon -- hidden for melee (no mags), shows reserve mag count otherwise
+      const magBox = document.getElementById('mag-icon-box');
+      magBox.classList.toggle('hidden', w.isMelee || w.reserveMags === undefined);
+
+      // Short pullout delay: block firing briefly and animate the ring around
+      // the crosshair draining while the weapon is being drawn.
+      weaponReadyTime = performance.now() + PULLOUT_DELAY_MS;
+      const ring = document.getElementById('pullout-ring-fg');
+      const ringWrap = document.getElementById('pullout-ring');
+      ringWrap.style.opacity = '1';
+      ring.style.transition = 'none';
+      ring.style.strokeDashoffset = '81.68';
+      // Force reflow so the transition below actually animates from the reset state
+      void ring.getBoundingClientRect();
+      ring.style.transition = `stroke-dashoffset ${PULLOUT_DELAY_MS}ms linear`;
+      ring.style.strokeDashoffset = '0';
+      setTimeout(() => { ringWrap.style.opacity = '0'; }, PULLOUT_DELAY_MS);
 
       updateAmmoDisplay();
       playSwapSound(w.isMelee);
@@ -575,11 +710,15 @@
       const w = weapons[currentWeaponIdx];
       document.getElementById('ammo-current').textContent = isReloading ? "--" : w.ammo;
       document.getElementById('ammo-max').textContent = w.maxAmmo;
+      const reserveEl = document.getElementById('mag-reserve-count');
+      if (w.reserveMags !== undefined) reserveEl.textContent = w.reserveMags;
     }
 
-    // Target Dummy Architecture
+    // Target Dummy Architecture -- every enemy has 100 health + 100 shield.
+    // Shield absorbs damage first; once depleted, damage carries through to health.
     const targetGroup = new THREE.Group();
     let targetHP = 100;
+    let targetShield = 100;
     let hpHideTimeout = null;
 
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
@@ -605,11 +744,14 @@
       hpContainer.style.top = `${y}px`;
     }
 
+    function updateTargetBars() {
+      document.getElementById('target-shield-fill').style.width = `${Math.max(0, targetShield)}%`;
+      document.getElementById('target-hp-fill').style.width = `${Math.max(0, targetHP)}%`;
+    }
+
     function triggerDamageHPBar() {
       const hpContainer = document.getElementById('target-hp-container');
-      const hpFill = document.getElementById('target-hp-fill');
-      
-      hpFill.style.width = `${Math.max(0, targetHP)}%`;
+      updateTargetBars();
       hpContainer.style.opacity = '1';
 
       if (hpHideTimeout) clearTimeout(hpHideTimeout);
@@ -634,6 +776,26 @@
       if (e.code === keybinds.weapon2) switchWeapon(1);
       if (e.code === keybinds.weapon3) switchWeapon(2);
       if (e.code === keybinds.weapon4) switchWeapon(3);
+
+      // Debug mode: press 9 to toggle model-calibration overlay + keyboard tuning.
+      // Uses keys not bound to anything else (arrows, comma/period, minus/equals)
+      // so it doesn't collide with WASD movement.
+      if (e.code === 'Digit9') {
+        debugMode = !debugMode;
+        document.getElementById('debug-overlay').style.display = debugMode ? 'block' : 'none';
+      }
+      if (debugMode && weapons[currentWeaponIdx].modelTransform) {
+        const step = e.shiftKey ? 0.02 : 0.005;
+        const scaleStep = e.shiftKey ? 1.05 : 1.01;
+        if (e.code === 'ArrowLeft') gunTune.rot(0, -step * 4, 0);
+        if (e.code === 'ArrowRight') gunTune.rot(0, step * 4, 0);
+        if (e.code === 'ArrowUp') gunTune.rot(step * 4, 0, 0);
+        if (e.code === 'ArrowDown') gunTune.rot(-step * 4, 0, 0);
+        if (e.code === 'Comma') gunTune.rot(0, 0, -step * 4);
+        if (e.code === 'Period') gunTune.rot(0, 0, step * 4);
+        if (e.code === 'Minus') gunTune.scale(1 / scaleStep);
+        if (e.code === 'Equal') gunTune.scale(scaleStep);
+      }
     });
 
     document.addEventListener('keyup', (e) => { 
@@ -693,9 +855,11 @@
     function reload() {
       const w = weapons[currentWeaponIdx];
       if (w.isMelee || isReloading || w.ammo === w.maxAmmo) return;
+      if (w.reserveMags !== undefined && w.reserveMags <= 0) return; // no spare mags left
       isReloading = true;
       updateAmmoDisplay();
       setTimeout(() => {
+        if (w.reserveMags !== undefined) w.reserveMags--;
         w.ammo = w.maxAmmo;
         isReloading = false;
         updateAmmoDisplay();
@@ -719,7 +883,8 @@
       const now = performance.now();
       const w = weapons[currentWeaponIdx];
       if (isReloading || now - lastShotTime < w.attackSpeed) return;
-      
+      if (now < weaponReadyTime) return; // still mid pullout-delay after a weapon swap
+
       if (!w.isMelee && w.ammo <= 0) { reload(); return; }
 
       if (!w.isMelee) {
@@ -741,8 +906,9 @@
         recoilMult = w.isSniper ? 0.05 : 0.35;
       }
 
-      pitch += w.recoilKick * recoilMult;
-      pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
+      // Recoil kicks a separate visual offset (not the player's actual aim), which
+      // auto-recenters in the main loop. Capped per-weapon at maxRecoil.
+      recoilPitchOffset = Math.min(w.maxRecoil, recoilPitchOffset + w.recoilKick * recoilMult);
 
       w.currentSpread = Math.min(w.maxSpread, w.currentSpread + w.spreadIncrement * bloomMult);
 
@@ -779,7 +945,15 @@
             }
           }
 
-          const finalDamage = isHeadshot ? (calculatedDamage * 1.5) : calculatedDamage;
+          // Headshots do 150% damage.
+          let finalDamage = isHeadshot ? (calculatedDamage * 1.5) : calculatedDamage;
+
+          // Shield absorbs damage first; overflow carries through to health.
+          if (targetShield > 0) {
+            const absorbed = Math.min(targetShield, finalDamage);
+            targetShield -= absorbed;
+            finalDamage -= absorbed;
+          }
           targetHP -= finalDamage;
 
           hitAny = true;
@@ -792,6 +966,7 @@
 
           if (targetHP <= 0) {
             targetHP = 100;
+            targetShield = 100;
             targetGroup.position.x = (Math.random() - 0.5) * 30;
             targetGroup.position.z = -10 - Math.random() * 20;
           }
@@ -810,6 +985,55 @@
     let prevTime = performance.now();
     camera.position.y = 1.7;
 
+    const minimapCanvas = document.getElementById('minimap');
+    const minimapCtx = minimapCanvas.getContext('2d');
+    const crosshairContainer = document.getElementById('crosshair-container');
+    const debugOverlayEl = document.getElementById('debug-overlay');
+
+    function drawMinimap() {
+      const size = minimapCanvas.width;
+      minimapCtx.clearRect(0, 0, size, size);
+      minimapCtx.fillStyle = 'rgba(20,20,26,0.9)';
+      minimapCtx.fillRect(0, 0, size, size);
+
+      // World floor is 100x100 centered at origin -- map world (x,z) to canvas px
+      const scale = size / 100;
+      const toCanvas = (wx, wz) => [size / 2 + wx * scale, size / 2 + wz * scale];
+
+      // Target dummy marker
+      const [tx, ty] = toCanvas(targetGroup.position.x, targetGroup.position.z);
+      minimapCtx.fillStyle = '#ff3355';
+      minimapCtx.beginPath();
+      minimapCtx.arc(tx, ty, 4, 0, Math.PI * 2);
+      minimapCtx.fill();
+
+      // Player marker + facing direction (forward = (-sin(yaw), -cos(yaw)) in world x,z)
+      const [px, py] = toCanvas(camera.position.x, camera.position.z);
+      const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+      minimapCtx.strokeStyle = '#4af';
+      minimapCtx.fillStyle = '#4af';
+      minimapCtx.beginPath();
+      minimapCtx.arc(px, py, 4, 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.beginPath();
+      minimapCtx.moveTo(px, py);
+      minimapCtx.lineTo(px + fx * 12, py + fz * 12);
+      minimapCtx.lineWidth = 2;
+      minimapCtx.stroke();
+    }
+
+    function updateDebugOverlay() {
+      const w = weapons[currentWeaponIdx];
+      if (!w.modelTransform) { debugOverlayEl.textContent = `${w.name} has no model transform.`; return; }
+      const t = w.modelTransform;
+      debugOverlayEl.innerHTML =
+        `<div class="dbg-title">DEBUG MODE -- ${w.name}</div>` +
+        `pos:   [${t.pos.map(v => v.toFixed(3)).join(', ')}]\n` +
+        `rot:   [${t.rot.map(v => v.toFixed(3)).join(', ')}]\n` +
+        `scale: ${t.scale.toFixed(4)}\n\n` +
+        `Arrows: rotate Y/X\n,  .  : rotate Z\n-  =  : scale\n(hold Shift for bigger steps)\nPress 9 to exit`;
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
@@ -825,10 +1049,32 @@
         w.currentSpread = Math.max(w.baseSpread, w.currentSpread - w.spreadRecovery * delta);
       }
 
+      // Recoil auto-recenters over time. Full-auto fire on a high-RPM weapon
+      // outpaces this recovery (each new kick lands before the last one settles),
+      // but letting off the trigger lets it fully recover in under a second --
+      // rewards controlled, semi-auto shooting over holding the trigger down.
+      recoilPitchOffset = THREE.MathUtils.lerp(recoilPitchOffset, 0, RECOIL_RECOVERY_RATE);
+
+      // Sustained-fire punishment: holding fire on an 8.5+ shots/sec weapon ramps
+      // up shake asymptotically toward SUSTAINED_SHAKE_MAX; releasing decays it fast.
+      const qualifiesForShake = !w.isMelee && (1000 / w.attackSpeed) >= HIGH_RPM_THRESHOLD;
+      if (isMouseDown && isLocked && qualifiesForShake) {
+        sustainedFireTime += delta;
+      } else {
+        sustainedFireTime = Math.max(0, sustainedFireTime - delta * 2.5);
+      }
+      const shakeIntensity = SUSTAINED_SHAKE_MAX * (1 - Math.exp(-sustainedFireTime / SUSTAINED_SHAKE_TAU));
+      shakeOffsetX = (Math.random() - 0.5) * shakeIntensity;
+      shakeOffsetY = (Math.random() - 0.5) * shakeIntensity;
+      const crosshairPx = shakeIntensity * 500;
+      crosshairContainer.style.transform =
+        `translate(calc(-50% + ${(Math.random() - 0.5) * crosshairPx}px), calc(-50% + ${(Math.random() - 0.5) * crosshairPx}px))`;
+
       camera.rotation.set(0, 0, 0);
-      camera.rotation.y = yaw;
-      camera.rotation.x = pitch;
       camera.rotation.order = "YXZ";
+      camera.rotation.y = yaw + shakeOffsetX;
+      camera.rotation.x = pitch + recoilPitchOffset + cameraPitchOffset + shakeOffsetY;
+      camera.rotation.z = cameraRoll;
 
       const targetFOV = isAiming ? w.zoomFov : settings.fov;
       camera.fov += (targetFOV - camera.fov) * 0.2;
@@ -843,6 +1089,7 @@
 
         const isMoving = moveVec.lengthSq() > 0;
         moveVec.normalize();
+        const localStrafeX = moveVec.x; // capture BEFORE world-space rotation, for camera lean
         moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
         const weightMult = w.movementSpeed;
@@ -890,6 +1137,14 @@
           canJump = true;
         }
 
+        // Camera inertia: lean into strafe direction, dip slightly on fall/jump.
+        // Both lag behind the actual motion (slow lerp) rather than snapping,
+        // which is the "delay slightly" feel from the notes.
+        const rollTarget = -localStrafeX * 0.05;
+        cameraRoll = THREE.MathUtils.lerp(cameraRoll, rollTarget, 0.06);
+        const pitchDipTarget = THREE.MathUtils.clamp(-velocityY * 0.0035, -0.05, 0.05);
+        cameraPitchOffset = THREE.MathUtils.lerp(cameraPitchOffset, pitchDipTarget, 0.05);
+
         gunRecoilPos = THREE.MathUtils.lerp(gunRecoilPos, 0, 0.15);
         gunRecoilRot = THREE.MathUtils.lerp(gunRecoilRot, 0, 0.15);
 
@@ -909,9 +1164,14 @@
         gunGroup.position.y = THREE.MathUtils.lerp(gunGroup.position.y, baseGunPos.y + bobY + swapOffset, 0.2);
         gunGroup.position.z = THREE.MathUtils.lerp(gunGroup.position.z, baseGunPos.z + gunRecoilPos, 0.2);
         gunGroup.rotation.x = gunRecoilRot + (swapOffset * 0.5);
+      } else {
+        cameraRoll = THREE.MathUtils.lerp(cameraRoll, 0, 0.06);
+        cameraPitchOffset = THREE.MathUtils.lerp(cameraPitchOffset, 0, 0.05);
       }
 
       updateTargetHPBar();
+      drawMinimap();
+      if (debugMode) updateDebugOverlay();
 
       prevTime = time;
       renderer.render(scene, camera);
