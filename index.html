@@ -133,6 +133,7 @@
     .toggle-setting-btn.active { background: #4af; border-color: #4af; color: #fff; }
     .keybind-btn { background: #2a2a36; border: 1px solid #444; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; min-width: 80px; text-align: center; font-family: monospace; }
     .keybind-btn.listening { background: #ff4655; border-color: #ff8888; }
+    .keybind-btn.conflict { border-color: #ffaa00; box-shadow: 0 0 0 1px #ffaa00; background: #3a2f18; }
     .btn-primary { background: #4af; border: none; color: #fff; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; font-size: 16px; }
     .btn-primary:hover { background: #389ee6; }
     .btn-secondary { background: #2a2a36; border: 1px solid #444; color: #aaa; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 13px; transition: 0.2s; }
@@ -602,6 +603,10 @@
 
     const SUSTAINED_SHAKE_MAX = 0.022;  // radians, camera shake cap (lowered)
     const SUSTAINED_SHAKE_TAU = 1.1;    // seconds -- how fast it ramps toward max
+    const SHAKE_PER_SHOT = 0.5;         // "fire time" credited per actual shot landed
+    const SHAKE_DECAY_PER_SEC = 3.0;    // how fast that credit drains when not being topped up --
+                                         // fast enough that a slow weapon's spaced-out shots never
+                                         // accumulate, only genuinely rapid fire does
     let sustainedFireTime = 0;
     let shakeOffsetX = 0, shakeOffsetY = 0;
 
@@ -618,6 +623,11 @@
 
     // R6-Siege-style lean: hold Q/E to tilt + peek sideways
     let leanOffset = 0; // smoothed -1..1
+    // How far (world units) a full lean shifts the camera sideways. The
+    // first pass at this (0.5) was too subtle to actually see past a corner
+    // -- bumped up substantially. Tune this directly if it still isn't
+    // enough once there's real wall geometry to test against.
+    const LEAN_PEEK_DISTANCE = 1.4;
 
     // Debug/model-calibration overlay, toggled with "9"
     let debugMode = false;
@@ -1079,6 +1089,10 @@
       lastShotTime = now;
       playGunshotSound(w.type);
 
+      // Credit sustained-fire shake only for an actual shot landing (see the
+      // decay logic in animate()) -- not for merely holding the trigger.
+      sustainedFireTime += SHAKE_PER_SHOT;
+
       // Fire animation for guns; knife gets a 3-hit combo that advances one
       // step per attack within the combo window, resetting to the first hit
       // if you wait too long between swings.
@@ -1274,25 +1288,20 @@
       // rewards controlled, semi-auto shooting over holding the trigger down.
       recoilPitchOffset = THREE.MathUtils.lerp(recoilPitchOffset, 0, RECOIL_RECOVERY_RATE);
 
-      // Sustained-fire punishment: holding fire on ANY weapon ramps up shake
-      // asymptotically toward SUSTAINED_SHAKE_MAX. Only counts as "actively
-      // shooting" if the weapon can actually fire right now -- holding the
-      // trigger while reloading or dry does NOT build shake. The instant you
-      // stop (release, run dry, or start reloading), shake cuts to zero --
-      // no lingering decay tail.
-      const hasAmmoToFire = w.isMelee || (!isReloading && w.ammo > 0);
-      const qualifiesForShake = isMouseDown && isLocked && hasAmmoToFire;
-      if (qualifiesForShake) {
-        sustainedFireTime += delta;
-      } else {
-        sustainedFireTime = 0;
-      }
+      // Sustained-fire punishment: ramps shake asymptotically toward
+      // SUSTAINED_SHAKE_MAX, but only from ACTUAL SHOTS landing (credited in
+      // shoot()), not from merely holding the trigger down. This decays
+      // continuously every frame, so a slow weapon's isolated shots (far
+      // apart relative to the decay rate) never accumulate into real shake --
+      // only sustained rapid fire does.
+      sustainedFireTime = Math.max(0, sustainedFireTime - delta * SHAKE_DECAY_PER_SEC);
       const shakeIntensity = SUSTAINED_SHAKE_MAX * (1 - Math.exp(-sustainedFireTime / SUSTAINED_SHAKE_TAU));
       shakeOffsetX = (Math.random() - 0.5) * shakeIntensity;
       shakeOffsetY = (Math.random() - 0.5) * shakeIntensity;
-      const crosshairPx = shakeIntensity * 500;
-      crosshairContainer.style.transform =
-        `translate(calc(-50% + ${(Math.random() - 0.5) * crosshairPx}px), calc(-50% + ${(Math.random() - 0.5) * crosshairPx}px))`;
+      // Camera-only shake -- the crosshair stays visually fixed at screen
+      // center (as a crosshair should); the camera shaking under it is what
+      // actually throws off your aim, which is the correct/simpler way to
+      // do this rather than also jittering the crosshair element itself.
 
       camera.rotation.set(0, 0, 0);
       camera.rotation.order = "YXZ";
@@ -1383,10 +1392,11 @@
         // which is the "delay slightly" feel from the notes.
         //
         // R6 Siege-style lean (Q/E) takes priority over the passive strafe lean
-        // when actively held -- it's a deliberate, stronger tilt + a small
-        // sideways peek offset. NOTE: lean direction is my best guess without
-        // being able to see the render -- if Q/E feel swapped, flip the signs
-        // on leanInput below.
+        // when actively held -- it's a deliberate, stronger tilt + a real
+        // sideways peek offset (strengthened from an earlier pass that was
+        // too subtle to actually see around anything). NOTE: lean direction
+        // is my best guess without being able to see the render -- if Q/E
+        // feel swapped, flip the signs on leanInput below.
         let leanInput = 0;
         if (keys['KeyQ']) leanInput -= 1;
         if (keys['KeyE']) leanInput += 1;
@@ -1394,10 +1404,10 @@
         leanOffset = THREE.MathUtils.lerp(leanOffset, leanInput, 0.15);
         const leanDelta = leanOffset - prevLeanOffset;
         const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
-        camera.position.x += rightX * leanDelta * 0.5;
-        camera.position.z += rightZ * leanDelta * 0.5;
+        camera.position.x += rightX * leanDelta * LEAN_PEEK_DISTANCE;
+        camera.position.z += rightZ * leanDelta * LEAN_PEEK_DISTANCE;
 
-        const rollTarget = leanInput !== 0 ? -leanOffset * 0.3 : -localStrafeX * 0.05;
+        const rollTarget = leanInput !== 0 ? -leanOffset * 0.4 : -localStrafeX * 0.05;
         cameraRoll = THREE.MathUtils.lerp(cameraRoll, rollTarget, leanInput !== 0 ? 0.15 : 0.06);
         const pitchDipTarget = THREE.MathUtils.clamp(-velocityY * 0.0035, -0.05, 0.05);
         cameraPitchOffset = THREE.MathUtils.lerp(cameraPitchOffset, pitchDipTarget, 0.05);
@@ -1514,6 +1524,31 @@
         const action = btn.getAttribute('data-action');
         if (action && keybinds[action]) btn.textContent = keybinds[action];
       });
+      checkKeybindConflicts();
+    }
+
+    // Flags any keybind buttons that now share the same physical key --
+    // both/all of them get a visible warning highlight and a tooltip naming
+    // what they conflict with, rather than silently letting two actions
+    // fight over one key with no indication anything's wrong.
+    function checkKeybindConflicts() {
+      const btns = Array.from(document.querySelectorAll('.keybind-btn'));
+      const codeGroups = {};
+      btns.forEach(b => {
+        const action = b.getAttribute('data-action');
+        const code = keybinds[action];
+        (codeGroups[code] = codeGroups[code] || []).push(b);
+      });
+      btns.forEach(b => { b.classList.remove('conflict'); b.title = ''; });
+      Object.values(codeGroups).forEach(group => {
+        if (group.length <= 1) return;
+        const labelOf = (b) => b.closest('.setting-row')?.querySelector('label')?.textContent || b.getAttribute('data-action');
+        const labels = group.map(labelOf);
+        group.forEach((b, i) => {
+          b.classList.add('conflict');
+          b.title = `Conflicts with: ${labels.filter((_, j) => j !== i).join(', ')}`;
+        });
+      });
     }
 
     function resetAudio() {
@@ -1537,10 +1572,12 @@
         rebindingBtn.classList.remove('listening');
         rebindingAction = null; rebindingBtn = null;
         window.removeEventListener('keydown', captureKey);
+        checkKeybindConflicts();
       };
       window.addEventListener('keydown', captureKey);
     }
 
+    checkKeybindConflicts(); // catch any conflicts already present at load
     updateGunMesh();
     animate();
 
